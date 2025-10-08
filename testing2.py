@@ -74,6 +74,22 @@ if uploaded_file_recievers is not None and uploaded_file_senders is not None:
 
     st.success(f"✅ Receivers loaded successfully: **{len(recievers_df)}**")
     st.success(f"✅ Senders loaded successfully: **{len(senders_df)}**")
+    if "dept" in recievers_df.columns:
+        departments = sorted(recievers_df["dept"].dropna().unique().tolist())
+        departments.insert(0, "All Departments")  
+
+        selected_dept = st.selectbox("🏢 Choose Department", departments)
+
+       
+        if selected_dept == "All Departments":
+            filtered_df = recievers_df
+            st.info(f"📋 Sending to ALL departments ({len(filtered_df)} total).")
+        else:
+            filtered_df = recievers_df[recievers_df["dept"] == selected_dept]
+            st.info(f"📋 {len(filtered_df)} receiver(s) found in {selected_dept} department.")
+    else:
+        st.error("❌ 'dept' column not found in your CSV!")
+        filtered_df = recievers_df 
 
     senders_cycle = cycle(senders_df.to_dict(orient="records"))
 
@@ -120,6 +136,7 @@ if uploaded_file_recievers is not None and uploaded_file_senders is not None:
 
 else:
     st.info("📥 Please upload both CSV files to start.")
+
 
 
 
