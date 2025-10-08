@@ -59,8 +59,8 @@ st.markdown("---")
 # ---------- Settings ----------
 st.subheader("⚙️ Email Settings")
 subject = st.text_input("📌 Email Subject", "Test Email")
-body_template = st.text_area("💌 Email Body (use {name} for personalization)", 
-                             value="Hello {name},\nThis is a test email from my project!")
+body_template = st.text_area("💌 Email Body "), 
+                             value="Hello \nThis is a test email from my project!")
 delay = st.slider("⏳ Delay between emails (seconds)", 1, 10, 2)
 
 # ---------- Start sending ----------
@@ -116,5 +116,6 @@ if uploaded_file_recievers is not None and uploaded_file_senders is not None:
 
 else:
     st.info("📥 Please upload both CSV files to start.")
+
 
 
