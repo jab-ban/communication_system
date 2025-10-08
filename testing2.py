@@ -5,8 +5,8 @@ import streamlit as st
 import time
 from itertools import cycle
 st.title("📧 Email Sender App")
-uploaded_file_recievers = st.file_uploader("Upload your CSV file (must have 'name' and 'email' columns)", type="csv")
-uploaded_file_senders=st.file_uploader("Upload your CSV file (must have 'email' and 'app_password'columns)", type="csv")
+uploaded_file_recievers = st.file_uploader("Upload your CSV file (the recievers emails)", type="csv")
+uploaded_file_senders=st.file_uploader("Upload your CSV file (the senders emails)", type="csv")
 delay = st.slider("Delay between emails (seconds)", 1, 10, 2)
 subject=st.text_input("Email Subject", "Test Email")
 body_template = st.text_area("Email Body", value="Hello {name},\nThis is a test email from my project!")
@@ -43,5 +43,6 @@ if uploaded_file_recievers is not None and uploaded_file_senders is not None:
                  st.success(f"✅ Sent to {receiver} from {sender_email}")
                 except Exception as e:
                  st.error(f"❌ Failed for {receiver}: {e}")
+
 
                 time.sleep(delay)
