@@ -101,7 +101,8 @@ if uploaded_file_recievers is not None and uploaded_file_senders is not None:
         total = len(recievers_df)
         sent_count = 0
 
-        for index, row in recievers_df.iterrows():
+        for index, row in filtered_df.iterrows():
+
             receiver = row["email"]
             name = row["name"]
 
@@ -135,6 +136,7 @@ if uploaded_file_recievers is not None and uploaded_file_senders is not None:
 
 else:
     st.info("📥 Please upload both CSV files to start.")
+
 
 
 
