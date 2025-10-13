@@ -131,11 +131,11 @@ if uploaded_file_recievers is not None and uploaded_file_senders is not None:
             time.sleep(delay)
             progress_bar.progress((index + 1) / total)
 
-        st.balloons()
-        st.success(f"🎉 Finished sending {sent_count}/{total} emails successfully!")
+        
 
 else:
     st.info("📥 Please upload both CSV files to start.")
+
 
 
 
