@@ -4,7 +4,33 @@ import pandas as pd
 import streamlit as st
 import time
 from itertools import cycle
+import requests
+import os
+from dotenv import load_dotenv
+load_dotenv()
+class EvolutionAPI:
+    BASE_URL=os.getenv("EVO_BASE_URL")
+    INSTANCE_NAME=os.getenv("EVO_INSTANCE_NAME")
 
+
+    def __init__(self):
+        self.__api_key=os.getenv("AUTHENTICATION_API_KEY")
+        self.__headers={
+            'apikey':self.__api_key,
+            'Content-Type':'application/json'
+        }
+
+    def send_message(self,number,text):
+        payload={
+            'number':number,
+            'text':text
+                 }
+        response=requests.post(url=f'{self.BASE_URL}/message/sendText/{self.INSTANCE_NAME}',
+                               headers=self.__headers,
+                               json=payload)
+        
+        return response.json()
+api=EvolutionAPI()
 # ---------- Page Config ----------
 st.set_page_config(page_title="📧 Email Sender App", page_icon="📨", layout="centered")
 
@@ -42,8 +68,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------- Title ----------
-st.title("📨 Email Sender App")
-st.markdown("### Send personalized emails easily using multiple sender accounts.")
+st.title("📨 Email/whatsapp Sender App")
+st.markdown("### Send personalized emails and whatsapp messages easily using multiple sender accounts.")
 
 st.markdown("---")
 
@@ -136,6 +162,7 @@ if uploaded_file_recievers is not None and uploaded_file_senders is not None:
 
 else:
     st.info("📥 Please upload both CSV files to start.")
+
 
 
 
