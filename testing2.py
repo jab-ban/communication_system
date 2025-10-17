@@ -7,166 +7,176 @@ from itertools import cycle
 import requests
 import os
 from dotenv import load_dotenv
+
+# ---------- Load environment variables ----------
 load_dotenv()
+
+EVO_BASE_URL = os.getenv("EVO_BASE_URL")
+EVO_INSTANCE_NAME = os.getenv("EVO_INSTANCE_NAME")
+AUTHENTICATION_API_KEY = os.getenv("AUTHENTICATION_API_KEY")
+
+# ---------- WhatsApp API Class ----------
 class EvolutionAPI:
-    BASE_URL=os.getenv("EVO_BASE_URL")
-    INSTANCE_NAME=os.getenv("EVO_INSTANCE_NAME")
-
-
     def __init__(self):
-        self.__api_key=os.getenv("AUTHENTICATION_API_KEY")
-        self.__headers={
-            'apikey':self.__api_key,
-            'Content-Type':'application/json'
+        self.base_url = EVO_BASE_URL
+        self.instance_name = EVO_INSTANCE_NAME
+        self.api_key = AUTHENTICATION_API_KEY
+        self.headers = {
+            'apikey': self.api_key,
+            'Content-Type': 'application/json'
         }
 
-    def send_message(self,number,text):
-        payload={
-            'number':number,
-            'text':text
-                 }
-        response=requests.post(url=f'{self.BASE_URL}/message/sendText/{self.INSTANCE_NAME}',
-                               headers=self.__headers,
-                               json=payload)
-        
+    def send_message(self, number, text):
+        url = f"{self.base_url}/message/sendText/{self.instance_name}"
+        payload = {'number': number, 'text': text}
+        response = requests.post(url, headers=self.headers, json=payload)
         return response.json()
-api=EvolutionAPI()
-# ---------- Page Config ----------
-st.set_page_config(page_title="📧 Email Sender App", page_icon="📨", layout="centered")
 
-# ---------- Custom CSS for styling ----------
+# ---------- Streamlit Page Configuration ----------
+st.set_page_config(page_title="📨 Smart Message Sender", page_icon="💬", layout="centered")
+
+# ---------- Elegant Custom Design ----------
 st.markdown("""
     <style>
-        .main {
-            background-color: #f9f9fb;
-            padding: 2rem;
-            border-radius: 15px;
+        body {
+            background: linear-gradient(to right, #e3f2fd, #e8f5e9);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333333;
         }
-        h1 {
-            color: #4B8BBE;
-            text-align: center;
-            font-family: 'Helvetica Neue', sans-serif;
-        }
-        .stTextInput, .stTextArea, .stSlider, .stFileUploader {
-            background-color: white;
-            border-radius: 10px;
-            padding: 1rem;
-            box-shadow: 0 0 5px rgba(0,0,0,0.05);
-        }
-        .stButton > button {
-            background-color: #4B8BBE;
+        .stButton>button {
+            background-color: #2196F3;
             color: white;
             border-radius: 10px;
             font-weight: bold;
-            padding: 0.6rem 1.2rem;
+            font-size: 16px;
+            padding: 0.6rem 1.4rem;
             transition: 0.3s;
         }
-        .stButton > button:hover {
-            background-color: #357ABD;
+        .stButton>button:hover {
+            background-color: #1976D2;
+            transform: scale(1.05);
+        }
+        .stTextInput, .stTextArea, .stSelectbox, .stMultiselect {
+            border-radius: 8px !important;
+        }
+        footer {
+            text-align: center;
+            color: #777;
+            margin-top: 3rem;
+            font-size: 13px;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# ---------- Title ----------
-st.title("📨 Email/whatsapp Sender App")
-st.markdown("### Send personalized emails and whatsapp messages easily using multiple sender accounts.")
+# ---------- Title Section ----------
+st.markdown("""
+<div style='background: linear-gradient(to right, #64b5f6, #81c784); 
+            border-radius: 15px; padding: 1rem; text-align:center; margin-bottom: 1rem;'>
+    <h1 style='color:white; font-weight:bold;'>📨 Smart Email / WhatsApp Sender</h1>
+    <h4 style='color:white;'>Send professional messages easily 🌿</h4>
+</div>
+""", unsafe_allow_html=True)
 
-st.markdown("---")
+# ---------- Load Data ----------
+try:
+    receivers_df = pd.read_csv('emails.csv')
+    senders_df = pd.read_csv('senders-emails.csv')
+    st.success(f"✅ Receivers loaded: **{len(receivers_df)}** | Senders loaded: **{len(senders_df)}**")
+except Exception as e:
+    st.error(f"❌ Error loading local CSV files: {e}")
+    st.stop()
 
-# ---------- File Uploads ----------
+# ---------- Stats Info Boxes ----------
 col1, col2 = st.columns(2)
-with col1:
-    uploaded_file_recievers = st.file_uploader("📁 Upload Receivers CSV", type="csv", help="File must contain 'name' and 'email' columns.")
-with col2:
-    uploaded_file_senders = st.file_uploader("📤 Upload Senders CSV", type="csv", help="File must contain 'email' and 'app_password' columns.")
+col1.metric("📧 Total Receivers", len(receivers_df))
+col2.metric("📤 Total Senders", len(senders_df))
 
-st.markdown("---")
+# ---------- Sending Method ----------
 
-# ---------- Settings ----------
-st.subheader("⚙️ Email Settings")
+method = st.radio("Choose Sending Method:", ["Email", "WhatsApp"], horizontal=True)
 
-subject = st.text_input("📌 Email Subject", "Test Email")
+# ---------- Message Input ----------
 
-body_template = st.text_area(
-    "💌 Email Body",
-    value="Hello \nThis is a test email from my project!"
-)
+if method == "Email":
+    subject = st.text_input("📌 Email Subject", "Test Email")
+    body_template = st.text_area("💌 Email Body", "Hello {name},\nThis is a test email from my project!")
+else:
+    subject = None
+    body_template = st.text_area("💬 WhatsApp Message", "Hi {name}, this is a test WhatsApp message!")
 
-delay = st.slider("⏳ Delay between emails (seconds)", 1, 10, 2)
-# ---------- Start sending ----------
-if uploaded_file_recievers is not None and uploaded_file_senders is not None:
-    recievers_df = pd.read_csv(uploaded_file_recievers)
-    senders_df = pd.read_csv(uploaded_file_senders)
-
-    st.success(f"✅ Receivers loaded successfully: **{len(recievers_df)}**")
-    st.success(f"✅ Senders loaded successfully: **{len(senders_df)}**")
-    if "dept" in recievers_df.columns:
-        departments = sorted(recievers_df["dept"].dropna().unique().tolist())
-        departments.insert(0, "All Departments")  
-
-        selected_dept = st.selectbox("🏢 Choose Department", departments)
-
-       
-        if selected_dept == "All Departments":
-            filtered_df = recievers_df
-            st.info(f"📋 Sending to ALL departments ({len(filtered_df)} total).")
+# ---------- Department Filter ----------
+if "dept" in receivers_df.columns:
+    
+    with st.expander("🏢 Departments Filter (Optional)"):
+        departments = sorted(receivers_df["dept"].dropna().unique().tolist())
+        selected_depts = st.multiselect("Select Department(s):", options=departments, default=departments)
+        if not selected_depts:
+            st.warning("⚠️ No department selected, sending to all.")
+            filtered_df = receivers_df
         else:
-            filtered_df = recievers_df[recievers_df["dept"] == selected_dept]
-            st.info(f"📋 {len(filtered_df)} receiver(s) found in {selected_dept} department.")
-    else:
-        st.error("❌ 'dept' column not found in your CSV!")
-        filtered_df = recievers_df 
+            filtered_df = receivers_df[receivers_df["dept"].isin(selected_depts)]
+            st.info(f"📋 {len(filtered_df)} receiver(s) found in selected department(s).")
+else:
+    st.error("❌ 'dept' column not found in your receivers CSV!")
+    filtered_df = receivers_df
 
+# ---------- WhatsApp Numbers Validation ----------
+if method == "WhatsApp":
+    if "number" not in filtered_df.columns:
+        st.error("❌ 'number' column not found in receivers file!")
+        st.stop()
+
+# ---------- Ready to Send Section ----------
+
+st.markdown("""
+<div style='background-color:#f3e5f5; border-radius:10px; padding:1rem;'>
+    🎯 Press the button below to start sending messages to the filtered receivers.
+</div>
+""", unsafe_allow_html=True)
+
+if st.button(f"✨ Send {method} Messages"):
+    total = len(filtered_df)
+    sent_count = 0
     senders_cycle = cycle(senders_df.to_dict(orient="records"))
+    api = EvolutionAPI()
 
-    st.markdown("---")
-    st.subheader("🚀 Ready to Send")
+    progress_bar = st.progress(0)
+    status_text = st.empty()
 
-    if st.button("📨 Send Emails Now"):
-        progress_bar = st.progress(0)
-        total = len(recievers_df)
-        sent_count = 0
+    for index, row in filtered_df.iterrows():
+        name = row["name"]
+        sender_data = next(senders_cycle)
+        sender_email = sender_data.get("email")
+        app_password = sender_data.get("app_password")
+        message = body_template.format(name=name)
 
-        for index, row in filtered_df.iterrows():
+        try:
+            if method == "Email":
+                receiver = row["email"]
+                msg = MIMEText(message)
+                msg["Subject"] = subject
+                msg["From"] = sender_email
+                msg["To"] = receiver
 
-            receiver = row["email"]
-            name = row["name"]
-
-            # Next sender in the cycle
-            sender_data = next(senders_cycle)
-            sender_email = sender_data["email"]
-            app_password = sender_data["app_password"]
-
-            message = body_template.format(name=name)
-
-            msg = MIMEText(message)
-            msg["Subject"] = subject
-            msg["From"] = sender_email
-            msg["To"] = receiver
-
-            try:
                 server = smtplib.SMTP("smtp.gmail.com", 587)
                 server.starttls()
                 server.login(sender_email, app_password)
                 server.send_message(msg)
                 server.quit()
-                st.success(f"✅ Sent to **{receiver}** from **{sender_email}**")
-                sent_count += 1
-            except Exception as e:
-                st.error(f"❌ Failed for {receiver}: {e}")
+                status_text.success(f"✅ Email sent to {receiver} from {sender_email}")
 
-            time.sleep(delay)
-            progress_bar.progress((index + 1) / total)
+            else:
+                number = str(row["number"])
+                api.send_message(number, message)
+                status_text.success(f"✅ WhatsApp message sent to {number}")
 
-        
+            sent_count += 1
+            
 
-else:
-    st.info("📥 Please upload both CSV files to start.")
+        except Exception as e:
+            status_text.error(f"❌ Failed for {name}: {e}")
 
+        time.sleep(2)  # Delay between messages
 
-
-
-
-
-
-
+    
+    st.success(f"🎉 All done! {sent_count}/{total} messages sent successfully.")
