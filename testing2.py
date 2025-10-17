@@ -5,98 +5,52 @@ import streamlit as st
 import time
 from itertools import cycle
 import requests
+from io import StringIO
 import os
-from dotenv import load_dotenv
 
-# ---------- Load environment variables ----------
-load_dotenv()
+# ---------- Page Config ----------
+st.set_page_config(page_title="📧 Email / WhatsApp Sender", page_icon="📨", layout="centered")
 
-EVO_BASE_URL = os.getenv("EVO_BASE_URL")
-EVO_INSTANCE_NAME = os.getenv("EVO_INSTANCE_NAME")
-AUTHENTICATION_API_KEY = os.getenv("AUTHENTICATION_API_KEY")
-
-# ---------- WhatsApp API Class ----------
-class EvolutionAPI:
-    def __init__(self):
-        self.base_url = EVO_BASE_URL
-        self.instance_name = EVO_INSTANCE_NAME
-        self.api_key = AUTHENTICATION_API_KEY
-        self.headers = {
-            'apikey': self.api_key,
-            'Content-Type': 'application/json'
-        }
-
-    def send_message(self, number, text):
-        url = f"{self.base_url}/message/sendText/{self.instance_name}"
-        payload = {'number': number, 'text': text}
-        response = requests.post(url, headers=self.headers, json=payload)
-        return response.json()
-
-# ---------- Streamlit Page Configuration ----------
-st.set_page_config(page_title="📨 Smart Message Sender", page_icon="💬", layout="centered")
-
-# ---------- Elegant Custom Design ----------
+# ---------- Custom Style ----------
 st.markdown("""
     <style>
-        body {
-            background: linear-gradient(to right, #e3f2fd, #e8f5e9);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #333333;
-        }
-        .stButton>button {
-            background-color: #2196F3;
-            color: white;
-            border-radius: 10px;
-            font-weight: bold;
-            font-size: 16px;
-            padding: 0.6rem 1.4rem;
-            transition: 0.3s;
-        }
-        .stButton>button:hover {
-            background-color: #1976D2;
-            transform: scale(1.05);
-        }
-        .stTextInput, .stTextArea, .stSelectbox, .stMultiselect {
-            border-radius: 8px !important;
-        }
-        footer {
-            text-align: center;
-            color: #777;
-            margin-top: 3rem;
-            font-size: 13px;
-        }
+        .main { background-color: #f9f9fb; padding: 2rem; border-radius: 15px; }
+        h1 { color: #4B8BBE; text-align: center; font-family: 'Helvetica Neue', sans-serif; }
+        .stButton > button { background-color: #4B8BBE; color: white; border-radius: 10px; font-weight: bold; padding: 0.6rem 1.2rem; transition: 0.3s; }
+        .stButton > button:hover { background-color: #357ABD; }
     </style>
 """, unsafe_allow_html=True)
 
-# ---------- Title Section ----------
-st.markdown("""
-<div style='background: linear-gradient(to right, #64b5f6, #81c784); 
-            border-radius: 15px; padding: 1rem; text-align:center; margin-bottom: 1rem;'>
-    <h1 style='color:white; font-weight:bold;'>📨 Smart Email / WhatsApp Sender</h1>
-    <h4 style='color:white;'>Send professional messages easily 🌿</h4>
-</div>
-""", unsafe_allow_html=True)
+# ---------- Title ----------
+st.title("📨 Email / WhatsApp Sender App")
+st.markdown("### Send messages using multiple accounts!")
 
-# ---------- Load Data ----------
-try:
-    receivers_df = pd.read_csv('emails.csv')
-    senders_df = pd.read_csv('senders-emails.csv')
-    st.success(f"✅ Receivers loaded: **{len(receivers_df)}** | Senders loaded: **{len(senders_df)}**")
-except Exception as e:
-    st.error(f"❌ Error loading local CSV files: {e}")
-    st.stop()
+st.markdown("---")
 
-# ---------- Stats Info Boxes ----------
-col1, col2 = st.columns(2)
-col1.metric("📧 Total Receivers", len(receivers_df))
-col2.metric("📤 Total Senders", len(senders_df))
+# ---------- Load CSVs ----------
+def load_csv(filename, secret_key):
+    """Load CSV from local file if exists, else from Streamlit Secrets"""
+    if os.path.exists(filename):
+        df = pd.read_csv(filename)
+        st.info(f"Loaded {filename} from local CSV")
+    else:
+        csv_text = st.secrets[secret_key]
+        df = pd.read_csv(StringIO(csv_text))
+        st.info(f"Loaded {filename} from Secrets")
+    return df
+
+receivers_df = load_csv("emails.csv", "emails_csv")
+senders_df = load_csv("senders-emails.csv", "senders_csv")
+
+st.success(f"✅ Receivers loaded: {len(receivers_df)} | Senders loaded: {len(senders_df)}")
 
 # ---------- Sending Method ----------
+method = st.selectbox("📤 Choose Sending Method", ["Email", "WhatsApp"])
 
-method = st.radio("Choose Sending Method:", ["Email", "WhatsApp"], horizontal=True)
+# ---------- Hidden delay variable ----------
+delay = 2  # hidden from UI but still used internally
 
-# ---------- Message Input ----------
-
+# ---------- Message Fields ----------
 if method == "Email":
     subject = st.text_input("📌 Email Subject", "Test Email")
     body_template = st.text_area("💌 Email Body", "Hello {name},\nThis is a test email from my project!")
@@ -106,42 +60,27 @@ else:
 
 # ---------- Department Filter ----------
 if "dept" in receivers_df.columns:
-    
-    with st.expander("🏢 Departments Filter (Optional)"):
-        departments = sorted(receivers_df["dept"].dropna().unique().tolist())
-        selected_depts = st.multiselect("Select Department(s):", options=departments, default=departments)
-        if not selected_depts:
-            st.warning("⚠️ No department selected, sending to all.")
-            filtered_df = receivers_df
-        else:
-            filtered_df = receivers_df[receivers_df["dept"].isin(selected_depts)]
-            st.info(f"📋 {len(filtered_df)} receiver(s) found in selected department(s).")
+    departments = sorted(receivers_df["dept"].dropna().unique().tolist())
+    selected_depts = st.multiselect("🏢 Choose Department(s)", options=departments, default=departments)
+    filtered_df = receivers_df[receivers_df["dept"].isin(selected_depts)] if selected_depts else receivers_df
 else:
-    st.error("❌ 'dept' column not found in your receivers CSV!")
     filtered_df = receivers_df
 
-# ---------- WhatsApp Numbers Validation ----------
-if method == "WhatsApp":
-    if "number" not in filtered_df.columns:
-        st.error("❌ 'number' column not found in receivers file!")
-        st.stop()
+# ---------- WhatsApp numbers variable ----------
+if method == "WhatsApp" and "number" not in filtered_df.columns:
+    st.error("❌ 'number' column not found in receivers file!")
+    st.stop()
+elif method == "WhatsApp":
+    whatsapp_numbers = filtered_df["number"].tolist()
 
-# ---------- Ready to Send Section ----------
+# ---------- Ready to Send ----------
+st.markdown("---")
+st.subheader("🚀 Ready to Send")
 
-st.markdown("""
-<div style='background-color:#f3e5f5; border-radius:10px; padding:1rem;'>
-    🎯 Press the button below to start sending messages to the filtered receivers.
-</div>
-""", unsafe_allow_html=True)
-
-if st.button(f"✨ Send {method} Messages"):
+if st.button(f"Send {method} Messages Now"):
     total = len(filtered_df)
     sent_count = 0
     senders_cycle = cycle(senders_df.to_dict(orient="records"))
-    api = EvolutionAPI()
-
-    progress_bar = st.progress(0)
-    status_text = st.empty()
 
     for index, row in filtered_df.iterrows():
         name = row["name"]
@@ -163,20 +102,23 @@ if st.button(f"✨ Send {method} Messages"):
                 server.login(sender_email, app_password)
                 server.send_message(msg)
                 server.quit()
-                status_text.success(f"✅ Email sent to {receiver} from {sender_email}")
+                st.success(f"✅ Email sent to {receiver} from {sender_email}")
 
-            else:
+            else:  # WhatsApp
                 number = str(row["number"])
-                api.send_message(number, message)
-                status_text.success(f"✅ WhatsApp message sent to {number}")
+                # مثال API WhatsApp
+                api_base = st.secrets.get("EVO_BASE_URL")
+                instance_name = st.secrets.get("EVO_INSTANCE_NAME")
+                api_key = st.secrets.get("AUTHENTICATION_API_KEY")
+                headers = {"apikey": api_key, "Content-Type": "application/json"}
+                payload = {"number": number, "text": message}
+                res = requests.post(f"{api_base}/message/sendText/{instance_name}", headers=headers, json=payload)
+                st.success(f"✅ WhatsApp message sent to {number}")
 
             sent_count += 1
-            
-
         except Exception as e:
-            status_text.error(f"❌ Failed for {name}: {e}")
+            st.error(f"❌ Failed for {name}: {e}")
 
-        time.sleep(2)  # Delay between messages
+        time.sleep(delay)
 
-    
     st.success(f"🎉 All done! {sent_count}/{total} messages sent successfully.")
