@@ -1,2 +1,5 @@
 emails.csv
 senders-emails.csv
+.env
+__pycache__/
+*.pyc
