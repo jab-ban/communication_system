@@ -1,3 +1,5 @@
+
+You said:
 import smtplib
 from email.mime.text import MIMEText
 import pandas as pd
@@ -5,33 +7,13 @@ import streamlit as st
 import time
 from itertools import cycle
 import requests
+from io import StringIO
 import os
-from dotenv import load_dotenv
 
-# ---------- 0. Load Environment Variables ----------
-load_dotenv()
-
-class EvolutionAPI:
-    BASE_URL = os.getenv("EVO_BASE_URL")
-    INSTANCE_NAME = os.getenv("EVO_INSTANCE_NAME")
-
-    def __init__(self):
-        self.__api_key = os.getenv("AUTHENTICATION_API_KEY")
-        self.__headers = {'apikey': self.__api_key, 'Content-Type': 'application/json'}
-
-    def send_message(self, number, text):
-        payload = {'number': number, 'text': text}
-        response = requests.post(
-            url=f'{self.BASE_URL}/message/sendText/{self.INSTANCE_NAME}',
-            headers=self.__headers,
-            json=payload
-        )
-        return response.json()
-
-
-# ---------- 1. Streamlit Page Config & Style ----------
+# ---------- Page Config ----------
 st.set_page_config(page_title="📧 Email / WhatsApp Sender", page_icon="📨", layout="centered")
 
+# ---------- Custom Style ----------
 st.markdown("""
     <style>
         .main { background-color: #f9f9fb; padding: 2rem; border-radius: 15px; }
@@ -41,27 +23,36 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# ---------- Title ----------
 st.title("📨 Email / WhatsApp Sender App")
-st.markdown("### Send messages using multiple accounts — locally loaded data!")
+st.markdown("### Send messages using multiple accounts!")
+
 st.markdown("---")
 
+# ---------- Load CSVs ----------
+def load_csv(filename, secret_key):
+    """Load CSV from local file if exists, else from Streamlit Secrets"""
+    if os.path.exists(filename):
+        df = pd.read_csv(filename)
+        st.info(f"Loaded {filename} from local CSV")
+    else:
+        csv_text = st.secrets[secret_key]
+        df = pd.read_csv(StringIO(csv_text))
+        st.info(f"Loaded {filename} from Secrets")
+    return df
 
-# ---------- 2. Load Local CSV Data ----------
-try:
-    receivers_df = pd.read_csv('C:/Users/Ban/OneDrive/Desktop/communication sys/emails.csv')
-    senders_df = pd.read_csv('C:/Users/Ban/OneDrive/Desktop/communication sys/senders-emails.csv')
-    st.success(f"✅ Receivers loaded: **{len(receivers_df)}** | Senders loaded: **{len(senders_df)}**")
-except Exception as e:
-    st.error(f"❌ Error loading local CSV files: {e}")
-    st.stop()
+receivers_df = load_csv("emails.csv", "emails_csv")
+senders_df = load_csv("senders-emails.csv", "senders_csv")
 
+st.success(f"✅ Receivers loaded: {len(receivers_df)} | Senders loaded: {len(senders_df)}")
 
-# ---------- 3. Sending Method ----------
+# ---------- Sending Method ----------
 method = st.selectbox("📤 Choose Sending Method", ["Email", "WhatsApp"])
-delay = 2  # Hidden delay variable for internal use
 
+# ---------- Hidden delay variable ----------
+delay = 2  # hidden from UI but still used internally
 
-# ---------- 4. Message Input ----------
+# ---------- Message Fields ----------
 if method == "Email":
     subject = st.text_input("📌 Email Subject", "Test Email")
     body_template = st.text_area("💌 Email Body", "Hello {name},\nThis is a test email from my project!")
@@ -69,32 +60,22 @@ else:
     subject = None
     body_template = st.text_area("💬 WhatsApp Message", "Hi {name}, this is a test WhatsApp message!")
 
-
-# ---------- 5. Department Filter ----------
+# ---------- Department Filter ----------
 if "dept" in receivers_df.columns:
     departments = sorted(receivers_df["dept"].dropna().unique().tolist())
     selected_depts = st.multiselect("🏢 Choose Department(s)", options=departments, default=departments)
-
-    if not selected_depts:
-        st.warning("⚠️ No department selected, sending to all.")
-        filtered_df = receivers_df
-    else:
-        filtered_df = receivers_df[receivers_df["dept"].isin(selected_depts)]
-        st.info(f"📋 {len(filtered_df)} receiver(s) found in selected department(s).")
+    filtered_df = receivers_df[receivers_df["dept"].isin(selected_depts)] if selected_depts else receivers_df
 else:
-    st.info("ℹ️ No 'dept' column found, sending to all receivers.")
     filtered_df = receivers_df
 
-
-# ---------- 6. WhatsApp Numbers Check ----------
-if method == "WhatsApp":
-    if "number" not in filtered_df.columns:
-        st.error("❌ 'number' column not found in receivers CSV!")
-        st.stop()
+# ---------- WhatsApp numbers variable ----------
+if method == "WhatsApp" and "number" not in filtered_df.columns:
+    st.error("❌ 'number' column not found in receivers file!")
+    st.stop()
+elif method == "WhatsApp":
     whatsapp_numbers = filtered_df["number"].tolist()
 
-
-# ---------- 7. Ready to Send ----------
+# ---------- Ready to Send ----------
 st.markdown("---")
 st.subheader("🚀 Ready to Send")
 
@@ -106,8 +87,8 @@ if st.button(f"Send {method} Messages Now"):
     for index, row in filtered_df.iterrows():
         name = row["name"]
         sender_data = next(senders_cycle)
-        sender_email = sender_data["email"]
-        app_password = sender_data["app_password"]
+        sender_email = sender_data.get("email")
+        app_password = sender_data.get("app_password")
         message = body_template.format(name=name)
 
         try:
@@ -127,12 +108,16 @@ if st.button(f"Send {method} Messages Now"):
 
             else:  # WhatsApp
                 number = str(row["number"])
-                api = EvolutionAPI()
-                api.send_message(number, message)
+                # مثال API WhatsApp
+                api_base = st.secrets.get("EVO_BASE_URL")
+                instance_name = st.secrets.get("EVO_INSTANCE_NAME")
+                api_key = st.secrets.get("AUTHENTICATION_API_KEY")
+                headers = {"apikey": api_key, "Content-Type": "application/json"}
+                payload = {"number": number, "text": message}
+                res = requests.post(f"{api_base}/message/sendText/{instance_name}", headers=headers, json=payload)
                 st.success(f"✅ WhatsApp message sent to {number}")
 
             sent_count += 1
-
         except Exception as e:
             st.error(f"❌ Failed for {name}: {e}")
 
