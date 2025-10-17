@@ -1,5 +1,5 @@
 
-You said:
+
 import smtplib
 from email.mime.text import MIMEText
 import pandas as pd
@@ -124,3 +124,4 @@ if st.button(f"Send {method} Messages Now"):
         time.sleep(delay)
 
     st.success(f"🎉 All done! {sent_count}/{total} messages sent successfully.")
+
