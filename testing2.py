@@ -7,7 +7,6 @@ from itertools import cycle
 import requests
 import os
 from dotenv import load_dotenv
-import logging
 
 # ---------- Load environment variables ----------
 load_dotenv()
@@ -15,10 +14,6 @@ load_dotenv()
 EVO_BASE_URL = os.getenv("EVO_BASE_URL")
 EVO_INSTANCE_NAME = os.getenv("EVO_INSTANCE_NAME")
 AUTHENTICATION_API_KEY = os.getenv("AUTHENTICATION_API_KEY")
-
-# ---------- Setup logging for failed messages ----------
-logging.basicConfig(filename='send_errors.log', level=logging.WARNING, 
-                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 # ---------- WhatsApp API Class ----------
 class EvolutionAPI:
@@ -41,20 +36,46 @@ class EvolutionAPI:
 st.set_page_config(page_title="📨 Smart Message Sender", page_icon="💬", layout="centered")
 
 # ---------- Elegant Custom Design ----------
-st.markdown("""<style>
-    body { background: linear-gradient(to right, #e3f2fd, #e8f5e9); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333333; }
-    .stButton>button { background-color: #2196F3; color: white; border-radius: 10px; font-weight: bold; font-size: 16px; padding: 0.6rem 1.4rem; transition: 0.3s; }
-    .stButton>button:hover { background-color: #1976D2; transform: scale(1.05); }
-    .stTextInput, .stTextArea, .stSelectbox, .stMultiselect { border-radius: 8px !important; }
-    footer { text-align: center; color: #777; margin-top: 3rem; font-size: 13px; }
-</style>""", unsafe_allow_html=True)
+st.markdown("""
+    <style>
+        body {
+            background: linear-gradient(to right, #e3f2fd, #e8f5e9);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333333;
+        }
+        .stButton>button {
+            background-color: #2196F3;
+            color: white;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 0.6rem 1.4rem;
+            transition: 0.3s;
+        }
+        .stButton>button:hover {
+            background-color: #1976D2;
+            transform: scale(1.05);
+        }
+        .stTextInput, .stTextArea, .stSelectbox, .stMultiselect {
+            border-radius: 8px !important;
+        }
+        footer {
+            text-align: center;
+            color: #777;
+            margin-top: 3rem;
+            font-size: 13px;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 # ---------- Title Section ----------
-st.markdown("""<div style='background: linear-gradient(to right, #64b5f6, #81c784); 
+st.markdown("""
+<div style='background: linear-gradient(to right, #64b5f6, #81c784); 
             border-radius: 15px; padding: 1rem; text-align:center; margin-bottom: 1rem;'>
     <h1 style='color:white; font-weight:bold;'>📨 Smart Email / WhatsApp Sender</h1>
     <h4 style='color:white;'>Send professional messages easily 🌿</h4>
-</div>""", unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
 # ---------- Load Data ----------
 try:
@@ -71,9 +92,11 @@ col1.metric("📧 Total Receivers", len(receivers_df))
 col2.metric("📤 Total Senders", len(senders_df))
 
 # ---------- Sending Method ----------
+
 method = st.radio("Choose Sending Method:", ["Email", "WhatsApp"], horizontal=True)
 
 # ---------- Message Input ----------
+
 if method == "Email":
     subject = st.text_input("📌 Email Subject", "Test Email")
     body_template = st.text_area("💌 Email Body", "Hello {name},\nThis is a test email from my project!")
@@ -83,24 +106,33 @@ else:
 
 # ---------- Department Filter ----------
 if "dept" in receivers_df.columns:
+    
     with st.expander("🏢 Departments Filter (Optional)"):
         departments = sorted(receivers_df["dept"].dropna().unique().tolist())
         selected_depts = st.multiselect("Select Department(s):", options=departments, default=departments)
-        filtered_df = filtered_df = receivers_df if not selected_depts else receivers_df[receivers_df["dept"].isin(selected_depts)]
-        st.info(f"📋 {len(filtered_df)} receiver(s) found in selected department(s).")
+        if not selected_depts:
+            st.warning("⚠️ No department selected, sending to all.")
+            filtered_df = receivers_df
+        else:
+            filtered_df = receivers_df[receivers_df["dept"].isin(selected_depts)]
+            st.info(f"📋 {len(filtered_df)} receiver(s) found in selected department(s).")
 else:
     st.error("❌ 'dept' column not found in your receivers CSV!")
     filtered_df = receivers_df
 
 # ---------- WhatsApp Numbers Validation ----------
-if method == "WhatsApp" and "number" not in filtered_df.columns:
-    st.error("❌ 'number' column not found in receivers file!")
-    st.stop()
+if method == "WhatsApp":
+    if "number" not in filtered_df.columns:
+        st.error("❌ 'number' column not found in receivers file!")
+        st.stop()
 
 # ---------- Ready to Send Section ----------
-st.markdown("""<div style='background-color:#f3e5f5; border-radius:10px; padding:1rem;'>
+
+st.markdown("""
+<div style='background-color:#f3e5f5; border-radius:10px; padding:1rem;'>
     🎯 Press the button below to start sending messages to the filtered receivers.
-</div>""", unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
 if st.button(f"✨ Send {method} Messages"):
     total = len(filtered_df)
@@ -139,12 +171,13 @@ if st.button(f"✨ Send {method} Messages"):
                 status_text.success(f"✅ WhatsApp message sent to {number}")
 
             sent_count += 1
+            
 
         except Exception as e:
-            # 💡 هنا: سجل الخطأ داخليًا بدون إظهار الـ JSON الكامل
-            logging.warning(f"Failed to send message to {name}: {e}")
-            status_text.warning(f"⚠️ Failed to send message to {name}")
+            status_text.error(f"❌ Failed for {name}: {e}")
 
         time.sleep(2)  # Delay between messages
 
+    
     st.success(f"🎉 All done! {sent_count}/{total} messages sent successfully.")
+هاي المود وين اضيفها
