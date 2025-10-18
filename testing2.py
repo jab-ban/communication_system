@@ -36,7 +36,7 @@ st.markdown("---")
 def load_csv(secret_key):
     """Load CSV from Streamlit Secrets safely"""
     csv_text = st.secrets[secret_key]
-    df = pd.read_csv(StringIO(csv_text))
+    df = pd.read_csv(StringIO(csv_text.strip()))
     return df
 
 receivers_df = load_csv("emails_csv")
